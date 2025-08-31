@@ -68,44 +68,10 @@ if ($user_role === 'employee') {
 }
 $stmt->execute();
 $todays_customers = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-
-// Get recent customers
-$query = "SELECT c.*, CONCAT(u.first_name, ' ', u.last_name) as created_by_name 
-          FROM customers c 
-          LEFT JOIN users u ON c.created_by = u.id ";
-          
-if ($user_role === 'employee') {
-    $query .= " WHERE c.created_by = :user_id ";
-}
-
-$query .= " ORDER BY c.created_at DESC LIMIT 5";
-$stmt = $db->prepare($query);
-
-if ($user_role === 'employee') {
-    $stmt->bindParam(':user_id', $_SESSION['user_id'], PDO::PARAM_INT);
-}
-
-$stmt->execute();
-$recent_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get total employees (for admin only)
-$total_employees = 0;
-if ($_SESSION['role'] === 'admin') {
-    $query = "SELECT COUNT(*) as total FROM users WHERE role_id = 2"; // role_id 2 is employee
-    $stmt = $db->prepare($query);
-    $stmt->execute();
-    $total_employees = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
-}
-
-// Get today's new customers
-$query = "SELECT COUNT(*) as count FROM customers WHERE DATE(created_at) = CURDATE()";
-$stmt = $db->prepare($query);
-$stmt->execute();
-$todays_customers = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
 ?>
 
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full bg-gray-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -114,1131 +80,628 @@ $todays_customers = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/enhanced.css">
     <style>
-        /* assets/css/enhanced.css */
-
-/* Base Styles */
-:root {
-  --primary-color: #4361ee;
-  --primary-light: #eef2ff;
-  --primary-dark: #3a0ca3;
-  --secondary-color: #3f37c9;
-  --success-color: #10b981;
-  --success-dark: #0d926c;
-  --danger-color: #ef4444;
-  --danger-dark: #dc2626;
-  --warning-color: #f59e0b;
-  --warning-dark: #d97706;
-  --info-color: #3b82f6;
-  --light-color: #f8f9fa;
-  --dark-color: #1f2937;
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
-  --radius: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-full: 9999px;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  --transition: all 0.2s ease-in-out;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  line-height: 1.5;
-  color: var(--gray-800);
-  background-color: var(--gray-50);
-}
-
-a {
-  text-decoration: none;
-  color: var(--primary-color);
-  transition: var(--transition);
-}
-
-a:hover {
-  color: var(--secondary-color);
-}
-
-img {
-  max-width: 100%;
-  height: auto;
-}
-
-.container {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-/* Typography */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  line-height: 1.25;
-  margin-bottom: 0.75rem;
-  color: var(--gray-900);
-}
-
-h1 { font-size: 2.25rem; }
-h2 { font-size: 1.875rem; }
-h3 { font-size: 1.5rem; }
-h4 { font-size: 1.25rem; }
-h5 { font-size: 1.125rem; }
-h6 { font-size: 1rem; }
-
-p {
-  margin-bottom: 1rem;
-}
-
-.text-sm { font-size: 0.875rem; }
-.text-base { font-size: 1rem; }
-.text-lg { font-size: 1.125rem; }
-.text-xl { font-size: 1.25rem; }
-.text-2xl { font-size: 1.5rem; }
-.text-3xl { font-size: 1.875rem; }
-.text-4xl { font-size: 2.25rem; }
-
-.font-light { font-weight: 300; }
-.font-normal { font-weight: 400; }
-.font-medium { font-weight: 500; }
-.font-semibold { font-weight: 600; }
-.font-bold { font-weight: 700; }
-
-.text-primary { color: var(--primary-color); }
-.text-secondary { color: var(--secondary-color); }
-.text-success { color: var(--success-color); }
-.text-danger { color: var(--danger-color); }
-.text-warning { color: var(--warning-color); }
-.text-info { color: var(--info-color); }
-.text-light { color: var(--light-color); }
-.text-dark { color: var(--dark-color); }
-.text-gray { color: var(--gray-500); }
-.text-white { color: white; }
-
-/* Buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius);
-  font-weight: 500;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  cursor: pointer;
-  transition: var(--transition);
-  border: 1px solid transparent;
-}
-
-.btn-sm {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.8125rem;
-}
-
-.btn-lg {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-}
-
-.btn-primary {
-  background-color: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-}
-
-.btn-primary:hover {
-  background-color: var(--secondary-color);
-  border-color: var(--secondary-color);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-secondary {
-  background-color: var(--secondary-color);
-  color: white;
-  border-color: var(--secondary-color);
-}
-
-.btn-secondary:hover {
-  background-color: var(--primary-dark);
-  border-color: var(--primary-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-success {
-  background-color: var(--success-color);
-  color: white;
-  border-color: var(--success-color);
-}
-
-.btn-success:hover {
-  background-color: var(--success-dark);
-  border-color: var(--success-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-danger {
-  background-color: var(--danger-color);
-  color: white;
-  border-color: var(--danger-color);
-}
-
-.btn-danger:hover {
-  background-color: var(--danger-dark);
-  border-color: var(--danger-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-warning {
-  background-color: var(--warning-color);
-  color: white;
-  border-color: var(--warning-color);
-}
-
-.btn-warning:hover {
-  background-color: var(--warning-dark);
-  border-color: var(--warning-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-outline {
-  background-color: transparent;
-  color: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.btn-outline:hover {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.btn-link {
-  background-color: transparent;
-  color: var(--primary-color);
-  border-color: transparent;
-  text-decoration: underline;
-}
-
-.btn-link:hover {
-  color: var(--secondary-color);
-  text-decoration: none;
-}
-
-.btn-icon {
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Cards */
-.card {
-  background-color: white;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  transition: var(--transition);
-  border: 1px solid var(--gray-200);
-}
-
-.card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.card-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--gray-200);
-}
-
-.card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.card-body {
-  padding: 1.5rem;
-}
-
-.card-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--gray-200);
-  background-color: var(--gray-50);
-}
-
-/* Alerts */
-.alert {
-  padding: 1rem;
-  border-radius: var(--radius);
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.alert-icon {
-  font-size: 1.25rem;
-  margin-top: 0.125rem;
-}
-
-.alert-content {
-  flex: 1;
-}
-
-.alert-primary {
-  background-color: var(--primary-light);
-  color: var(--primary-color);
-  border-left: 4px solid var(--primary-color);
-}
-
-.alert-success {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--success-color);
-  border-left: 4px solid var(--success-color);
-}
-
-.alert-danger {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
-  border-left: 4px solid var(--danger-color);
-}
-
-.alert-warning {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: var(--warning-color);
-  border-left: 4px solid var(--warning-color);
-}
-
-.alert-info {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: var(--info-color);
-  border-left: 4px solid var(--info-color);
-}
-
-/* Forms */
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-.form-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: var(--gray-700);
-  font-size: 0.9375rem;
-}
-
-.form-control {
-  display: block;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: var(--gray-800);
-  background-color: white;
-  background-clip: padding-box;
-  border: 1px solid var(--gray-300);
-  border-radius: var(--radius);
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-
-.form-control:focus {
-  border-color: var(--primary-color);
-  outline: 0;
-  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.25);
-}
-
-.form-control-lg {
-  padding: 1rem 1.25rem;
-  font-size: 1.125rem;
-}
-
-.form-control-sm {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-}
-
-.input-group {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  width: 100%;
-}
-
-.input-group-text {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  font-weight: 400;
-  line-height: 1.5;
-  color: var(--gray-700);
-  text-align: center;
-  white-space: nowrap;
-  background-color: var(--gray-100);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--radius);
-}
-
-.input-group-prepend {
-  margin-right: -1px;
-}
-
-.input-group-append {
-  margin-left: -1px;
-}
-
-.input-group > .form-control {
-  position: relative;
-  flex: 1 1 auto;
-  width: 1%;
-  min-width: 0;
-  margin-bottom: 0;
-}
-
-.input-group > .form-control:not(:first-child),
-.input-group > .custom-select:not(:first-child) {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.input-group > .form-control:not(:last-child),
-.input-group > .custom-select:not(:last-child) {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.form-text {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.875rem;
-  color: var(--gray-600);
-}
-
-/* Tables */
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-  color: var(--gray-700);
-}
-
-.table th,
-.table td {
-  padding: 0.75rem 1rem;
-  vertical-align: top;
-  border-top: 1px solid var(--gray-200);
-}
-
-.table thead th {
-  vertical-align: bottom;
-  border-bottom: 2px solid var(--gray-200);
-  font-weight: 600;
-  color: var(--gray-700);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-}
-
-.table tbody + tbody {
-  border-top: 2px solid var(--gray-200);
-}
-
-.table-striped tbody tr:nth-of-type(odd) {
-  background-color: var(--gray-50);
-}
-
-.table-hover tbody tr:hover {
-  background-color: var(--gray-100);
-}
-
-.table-responsive {
-  display: block;
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Navigation */
-.navbar {
-  background-color: white;
-  box-shadow: var(--shadow-sm);
-  padding: 1rem 0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.nav-logo {
-  display: inline-flex;
-  align-items: center;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--primary-color);
-}
-
-.nav-logo i {
-  margin-right: 0.5rem;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.nav-link {
-  color: var(--gray-600);
-  font-weight: 500;
-  padding: 0.5rem 0;
-  position: relative;
-}
-
-.nav-link:hover {
-  color: var(--primary-color);
-}
-
-.nav-link.active {
-  color: var(--primary-color);
-  font-weight: 600;
-}
-
-.nav-link.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: var(--primary-color);
-}
-
-/* Layout */
-.flex {
-  display: flex;
-}
-
-.flex-col {
-  flex-direction: column;
-}
-
-.flex-row {
-  flex-direction: row;
-}
-
-.items-center {
-  align-items: center;
-}
-
-.justify-center {
-  justify-content: center;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.justify-end {
-  justify-content: flex-end;
-}
-
-.flex-1 {
-  flex: 1;
-}
-
-.flex-grow {
-  flex-grow: 1;
-}
-
-.w-full {
-  width: 100%;
-}
-
-.h-full {
-  height: 100%;
-}
-
-.min-h-screen {
-  min-height: 100vh;
-}
-
-.p-0 { padding: 0; }
-.p-1 { padding: 0.25rem; }
-.p-2 { padding: 0.5rem; }
-.p-3 { padding: 0.75rem; }
-.p-4 { padding: 1rem; }
-.p-5 { padding: 1.25rem; }
-.p-6 { padding: 1.5rem; }
-.p-8 { padding: 2rem; }
-.p-10 { padding: 2.5rem; }
-
-.py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
-.py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
-.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
-.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
-.py-10 { padding-top: 2.5rem; padding-bottom: 2.5rem; }
-
-.px-1 { padding-left: 0.25rem; padding-right: 0.25rem; }
-.px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-.px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-.px-4 { padding-left: 1rem; padding-right: 1rem; }
-.px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
-.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
-.px-8 { padding-left: 2rem; padding-right: 2rem; }
-.px-10 { padding-left: 2.5rem; padding-right: 2.5rem; }
-
-.m-0 { margin: 0; }
-.m-1 { margin: 0.25rem; }
-.m-2 { margin: 0.5rem; }
-.m-3 { margin: 0.75rem; }
-.m-4 { margin: 1rem; }
-.m-5 { margin: 1.25rem; }
-.m-6 { margin: 1.5rem; }
-.m-8 { margin: 2rem; }
-.m-10 { margin: 2.5rem; }
-
-.my-1 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
-.my-2 { margin-top: 0.5rem; margin-bottom: 0.5rem; }
-.my-3 { margin-top: 0.75rem; margin-bottom: 0.75rem; }
-.my-4 { margin-top: 1rem; margin-bottom: 1rem; }
-.my-5 { margin-top: 1.25rem; margin-bottom: 1.25rem; }
-.my-6 { margin-top: 1.5rem; margin-bottom: 1.5rem; }
-.my-8 { margin-top: 2rem; margin-bottom: 2rem; }
-.my-10 { margin-top: 2.5rem; margin-bottom: 2.5rem; }
-
-.mx-1 { margin-left: 0.25rem; margin-right: 0.25rem; }
-.mx-2 { margin-left: 0.5rem; margin-right: 0.5rem; }
-.mx-3 { margin-left: 0.75rem; margin-right: 0.75rem; }
-.mx-4 { margin-left: 1rem; margin-right: 1rem; }
-.mx-5 { margin-left: 1.25rem; margin-right: 1.25rem; }
-.mx-6 { margin-left: 1.5rem; margin-right: 1.5rem; }
-.mx-8 { margin-left: 2rem; margin-right: 2rem; }
-.mx-10 { margin-left: 2.5rem; margin-right: 2.5rem; }
-
-.mt-1 { margin-top: 0.25rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-3 { margin-top: 0.75rem; }
-.mt-4 { margin-top: 1rem; }
-.mt-5 { margin-top: 1.25rem; }
-.mt-6 { margin-top: 1.5rem; }
-.mt-8 { margin-top: 2rem; }
-.mt-10 { margin-top: 2.5rem; }
-
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-3 { margin-bottom: 0.75rem; }
-.mb-4 { margin-bottom: 1rem; }
-.mb-5 { margin-bottom: 1.25rem; }
-.mb-6 { margin-bottom: 1.5rem; }
-.mb-8 { margin-bottom: 2rem; }
-.mb-10 { margin-bottom: 2.5rem; }
-
-.ml-1 { margin-left: 0.25rem; }
-.ml-2 { margin-left: 0.5rem; }
-.ml-3 { margin-left: 0.75rem; }
-.ml-4 { margin-left: 1rem; }
-.ml-5 { margin-left: 1.25rem; }
-.ml-6 { margin-left: 1.5rem; }
-.ml-8 { margin-left: 2rem; }
-.ml-10 { margin-left: 2.5rem; }
-
-.mr-1 { margin-right: 0.25rem; }
-.mr-2 { margin-right: 0.5rem; }
-.mr-3 { margin-right: 0.75rem; }
-.mr-4 { margin-right: 1rem; }
-.mr-5 { margin-right: 1.25rem; }
-.mr-6 { margin-right: 1.5rem; }
-.mr-8 { margin-right: 2rem; }
-.mr-10 { margin-right: 2.5rem; }
-
-/* Grid */
-.grid {
-  display: grid;
-}
-
-.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-
-.gap-1 { gap: 0.25rem; }
-.gap-2 { gap: 0.5rem; }
-.gap-3 { gap: 0.75rem; }
-.gap-4 { gap: 1rem; }
-.gap-5 { gap: 1.25rem; }
-.gap-6 { gap: 1.5rem; }
-.gap-8 { gap: 2rem; }
-.gap-10 { gap: 2.5rem; }
-
-/* Hero Section */
-.hero {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: white;
-  padding: 6rem 0;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 50%;
-  height: 100%;
-  background: url('data:image/svg+xml;utf8,<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="100" r="90" stroke="rgba(255,255,255,0.1)" stroke-width="2"/><circle cx="100" cy="100" r="60" stroke="rgba(255,255,255,0.1)" stroke-width="2"/><circle cx="100" cy="100" r="30" stroke="rgba(255,255,255,0.1)" stroke-width="2"/></svg>') no-repeat center right;
-  opacity: 0.3;
-}
-
-.hero-content {
-  position: relative;
-  z-index: 1;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-.hero h1 {
-  font-size: 3rem;
-  font-weight: 800;
-  margin-bottom: 1.5rem;
-  line-height: 1.2;
-}
-
-.hero p {
-  font-size: 1.25rem;
-  opacity: 0.9;
-  margin-bottom: 2rem;
-}
-
-/* Footer */
-.footer {
-  background-color: var(--gray-900);
-  color: white;
-  padding: 4rem 0 2rem;
-}
-
-.footer-content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
-}
-
-.footer-section h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  color: white;
-}
-
-.footer-links {
-  list-style: none;
-}
-
-.footer-links li {
-  margin-bottom: 0.75rem;
-}
-
-.footer-links a {
-  color: var(--gray-400);
-  transition: var(--transition);
-}
-
-.footer-links a:hover {
-  color: white;
-}
-
-.footer-bottom {
-  text-align: center;
-  padding-top: 2rem;
-  border-top: 1px solid var(--gray-800);
-  color: var(--gray-400);
-  font-size: 0.875rem;
-}
-
-/* Dashboard Specific Styles */
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  min-height: 100vh;
-}
-
-.sidebar {
-  background-color: white;
-  border-right: 1px solid var(--gray-200);
-  padding: 1.5rem 0;
-}
-
-.sidebar-menu {
-  padding: 0 1.5rem;
-}
-
-.sidebar-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--gray-500);
-  margin: 1.5rem 0 0.5rem;
-  padding: 0 1.5rem;
-}
-
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1.5rem;
-  color: var(--gray-600);
-  font-weight: 500;
-  border-radius: var(--radius);
-  transition: var(--transition);
-}
-
-.sidebar-link:hover {
-  background-color: var(--gray-100);
-  color: var(--primary-color);
-}
-
-.sidebar-link.active {
-  background-color: var(--primary-light);
-  color: var(--primary-color);
-  font-weight: 600;
-}
-
-.sidebar-link i {
-  margin-right: 0.75rem;
-  width: 20px;
-  text-align: center;
-  font-size: 1.1rem;
-}
-
-.main-content {
-  padding: 2rem;
-}
-
-.welcome-banner {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  border-radius: var(--radius-lg);
-  padding: 2rem;
-  color: white;
-  margin-bottom: 2rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.welcome-banner h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  color: white;
-}
-
-.welcome-banner p {
-  margin: 0;
-  opacity: 0.9;
-  font-size: 1rem;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: white;
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
-  box-shadow: var(--shadow);
-  transition: var(--transition);
-  border: 1px solid var(--gray-200);
-}
-
-.stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-}
-
-.stat-card.primary {
-  border-left: 4px solid var(--primary-color);
-}
-
-.stat-card.success {
-  border-left: 4px solid var(--success-color);
-}
-
-.stat-card.warning {
-  border-left: 4px solid var(--warning-color);
-}
-
-.stat-card.danger {
-  border-left: 4px solid var(--danger-color);
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-.stat-card.primary .stat-icon {
-  background-color: rgba(67, 97, 238, 0.1);
-  color: var(--primary-color);
-}
-
-.stat-card.success .stat-icon {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--success-color);
-}
-
-.stat-card.warning .stat-icon {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: var(--warning-color);
-}
-
-.stat-card.danger .stat-icon {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
-}
-
-.stat-card h3 {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--gray-500);
-  margin: 0 0 0.5rem;
-}
-
-.stat-number {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--gray-800);
-  margin: 0 0 1rem;
-  line-height: 1.2;
-}
-
-.stat-desc {
-  display: flex;
-  align-items: center;
-  font-size: 0.875rem;
-  color: var(--gray-500);
-}
-
-.trend-up {
-  color: var(--success-color);
-  margin-right: 0.5rem;
-  display: flex;
-  align-items: center;
-}
-
-.trend-down {
-  color: var(--danger-color);
-  margin-right: 0.5rem;
-  display: flex;
-  align-items: center;
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    z-index: 1000;
-  }
-  
-  .sidebar.active {
-    transform: translateX(0);
-  }
-  
-  .main-content {
-    margin-left: 0;
-    padding: 1rem;
-  }
-  
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .hero h1 {
-    font-size: 2.25rem;
-  }
-  
-  .hero p {
-    font-size: 1.125rem;
-  }
-  
-  .footer-content {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .nav-links {
-    gap: 1rem;
-  }
-  
-  .footer-content {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
-}
-
-/* Utility Classes */
-.bg-white { background-color: white; }
-.bg-gray-50 { background-color: var(--gray-50); }
-.bg-gray-100 { background-color: var(--gray-100); }
-.bg-gray-200 { background-color: var(--gray-200); }
-.bg-gray-300 { background-color: var(--gray-300); }
-.bg-gray-400 { background-color: var(--gray-400); }
-.bg-gray-500 { background-color: var(--gray-500); }
-.bg-gray-600 { background-color: var(--gray-600); }
-.bg-gray-700 { background-color: var(--gray-700); }
-.bg-gray-800 { background-color: var(--gray-800); }
-.bg-gray-900 { background-color: var(--gray-900); }
-.bg-primary { background-color: var(--primary-color); }
-.bg-secondary { background-color: var(--secondary-color); }
-.bg-success { background-color: var(--success-color); }
-.bg-danger { background-color: var(--danger-color); }
-.bg-warning { background-color: var(--warning-color); }
-.bg-info { background-color: var(--info-color); }
-.bg-light { background-color: var(--light-color); }
-.bg-dark { background-color: var(--dark-color); }
-
-.rounded { border-radius: var(--radius); }
-.rounded-md { border-radius: var(--radius-md); }
-.rounded-lg { border-radius: var(--radius-lg); }
-.rounded-xl { border-radius: var(--radius-xl); }
-.rounded-full { border-radius: var(--radius-full); }
-
-.shadow { box-shadow: var(--shadow); }
-.shadow-md { box-shadow: var(--shadow-md); }
-.shadow-lg { box-shadow: var(--shadow-lg); }
-.shadow-xl { box-shadow: var(--shadow-xl); }
-.shadow-none { box-shadow: none; }
-
-.text-center { text-align: center; }
-.text-left { text-align: left; }
-.text-right { text-align: right; }
-
-.hidden { display: none; }
-.block { display: block; }
-.inline-block { display: inline-block; }
-.flex { display: flex; }
-.inline-flex { display: inline-flex; }
-
-/* Custom Components */
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: var(--primary-color);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
-
-.notification-badge {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  background-color: var(--danger-color);
-  color: white;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  font-size: 0.65rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--gray-100);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--gray-400);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-500);
-}
+        :root {
+            --primary-50: #f0f9ff;
+            --primary-100: #e0f2fe;
+            --primary-200: #bae6fd;
+            --primary-300: #7dd3fc;
+            --primary-400: #38bdf8;
+            --primary-500: #0ea5e9;
+            --primary-600: #0284c7;
+            --primary-700: #0369a1;
+            --primary-800: #075985;
+            --primary-900: #0c4a6e;
+            
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            
+            --green-50: #f0fdf4;
+            --green-100: #dcfce7;
+            --green-200: #bbf7d0;
+            --green-300: #86efac;
+            --green-400: #4ade80;
+            --green-500: #22c55e;
+            --green-600: #16a34a;
+            --green-700: #15803d;
+            --green-800: #166534;
+            --green-900: #14532d;
+            
+            --red-50: #fef2f2;
+            --red-100: #fee2e2;
+            --red-200: #fecaca;
+            --red-300: #fca5a5;
+            --red-400: #f87171;
+            --red-500: #ef4444;
+            --red-600: #dc2626;
+            --red-700: #b91c1c;
+            --red-800: #991b1b;
+            --red-900: #7f1d1d;
+            
+            --amber-50: #fffbeb;
+            --amber-100: #fef3c7;
+            --amber-200: #fde68a;
+            --amber-300: #fcd34d;
+            --amber-400: #fbbf24;
+            --amber-500: #f59e0b;
+            --amber-600: #d97706;
+            --amber-700: #b45309;
+            --amber-800: #92400e;
+            --amber-900: #78350f;
+            
+            --purple-50: #faf5ff;
+            --purple-100: #f3e8ff;
+            --purple-200: #e9d5ff;
+            --purple-300: #d8b4fe;
+            --purple-400: #c084fc;
+            --purple-500: #a855f7;
+            --purple-600: #9333ea;
+            --purple-700: #7e22ce;
+            --purple-800: #6b21a8;
+            --purple-900: #581c87;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            color: var(--gray-800);
+        }
+        
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid var(--gray-200);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            z-index: 20;
+        }
+        
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
+        .brand {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: var(--gray-800);
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+        
+        .brand-logo {
+            width: 36px;
+            height: 36px;
+            background: var(--primary-600);
+            color: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem;
+            font-weight: 700;
+        }
+        
+        .sidebar-menu {
+            flex: 1;
+            padding: 1.5rem 0;
+            overflow-y: auto;
+        }
+        
+        .menu-title {
+            padding: 0.5rem 1.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+        
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            margin: 0.25rem 0;
+            color: var(--gray-600);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .menu-item:hover {
+            background: var(--primary-50);
+            color: var(--primary-600);
+        }
+        
+        .menu-item.active {
+            background: var(--primary-50);
+            color: var(--primary-600);
+            border-left-color: var(--primary-600);
+        }
+        
+        .menu-item i {
+            width: 24px;
+            margin-right: 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        
+        /* Top Bar */
+        .top-bar {
+            height: 72px;
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+        }
+        
+        .page-title h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+        
+        .user-menu {
+            display: flex;
+            align-items: center;
+        }
+        
+        .notification-bell {
+            position: relative;
+            margin-right: 1.5rem;
+            color: var(--gray-500);
+            cursor: pointer;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: var(--red-500);
+            color: white;
+            border-radius: 9999px;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.625rem;
+            font-weight: 600;
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: var(--primary-600);
+            color: white;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        
+        .user-info {
+            margin-left: 0.75rem;
+        }
+        
+        .user-name {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: var(--gray-800);
+            margin-bottom: 0.125rem;
+        }
+        
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            text-transform: capitalize;
+        }
+        
+        /* Content */
+        .content-wrapper {
+            flex: 1;
+            padding: 2rem;
+            background: var(--gray-50);
+        }
+        
+        /* Welcome Banner */
+        .welcome-banner {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--gray-200);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .welcome-banner h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 0.5rem;
+        }
+        
+        .welcome-banner p {
+            color: var(--gray-600);
+        }
+        
+        /* Stats Grid */
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        
+        .grid-cols-1 {
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+        
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        
+        .grid-cols-4 {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            border: 1px solid var(--gray-200);
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-card:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+        }
+        
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+        
+        .stat-content {
+            text-align: right;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-top: 0.25rem;
+        }
+        
+        .stat-trend {
+            display: flex;
+            align-items: center;
+            font-size: 0.75rem;
+            margin-top: 0.75rem;
+            color: var(--gray-600);
+        }
+        
+        .trend-up {
+            color: var(--green-600);
+        }
+        
+        .trend-down {
+            color: var(--red-600);
+        }
+        
+        /* Recent Customers */
+        .recent-customers {
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid var(--gray-200);
+            margin-top: 2rem;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .recent-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .recent-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+        
+        .btn-primary {
+            background: var(--primary-600);
+            color: white;
+            border-radius: 0.375rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-700);
+        }
+        
+        .btn-primary i {
+            margin-right: 0.5rem;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            padding: 0.75rem 1.5rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
+        td {
+            padding: 1rem 1.5rem;
+            font-size: 0.875rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tr:hover td {
+            background: var(--gray-50);
+        }
+        
+        .customer-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+        
+        .customer-info {
+            margin-left: 0.75rem;
+        }
+        
+        .customer-name {
+            font-weight: 500;
+            color: var(--gray-800);
+        }
+        
+        .customer-phone {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            margin-top: 0.125rem;
+        }
+        
+        .customer-email {
+            color: var(--gray-700);
+        }
+        
+        .date-day {
+            font-weight: 500;
+            color: var(--gray-800);
+        }
+        
+        .date-time {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            margin-top: 0.125rem;
+        }
+        
+        .action-btn {
+            padding: 0.375rem;
+            border-radius: 9999px;
+            color: var(--gray-400);
+            transition: all 0.2s ease;
+            display: inline-flex;
+        }
+        
+        .action-btn:hover {
+            color: var(--primary-600);
+            background: var(--primary-50);
+        }
+        
+        .action-btn.edit:hover {
+            color: var(--blue-600);
+            background: var(--blue-50);
+        }
+        
+        .action-btn.delete:hover {
+            color: var(--red-600);
+            background: var(--red-50);
+        }
+        
+        .table-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+        
+        .pagination {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .page-btn {
+            padding: 0.375rem 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 0.375rem;
+            background: white;
+            color: var(--gray-700);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+        
+        .page-btn:hover {
+            background: var(--gray-100);
+        }
+        
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .empty-state {
+            padding: 3rem 1.5rem;
+            text-align: center;
+        }
+        
+        .empty-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--gray-100);
+            color: var(--gray-400);
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.5rem;
+        }
+        
+        .empty-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 0.5rem;
+        }
+        
+        .empty-description {
+            color: var(--gray-600);
+            margin-bottom: 1.5rem;
+        }
+        
+        /* Footer */
+        .footer {
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--gray-500);
+            border-top: 1px solid var(--gray-200);
+            background: white;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar-open .sidebar {
+                transform: translateX(0);
+                box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            }
+            
+            .sidebar-open .main-content {
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .sidebar-open .main-content::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 10;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .grid-cols-2, .grid-cols-4 {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+            
+            .content-wrapper {
+                padding: 1.5rem 1rem;
+            }
+            
+            .top-bar {
+                padding: 0 1rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1327,172 +790,147 @@ p {
                 <!-- Stats Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <!-- Total Customers -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all duration-200 hover:shadow-md">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 rounded-lg bg-primary-50">
-                                <i class="fas fa-users text-primary-600 text-xl"></i>
+                    <div class="stat-card">
+                        <div class="flex items-center justify-between">
+                            <div class="stat-icon" style="background-color: var(--primary-100); color: var(--primary-600);">
+                                <i class="fas fa-users"></i>
                             </div>
-                            <div class="text-right">
-                                <span class="text-xs font-medium text-gray-500">Total Customers</span>
-                                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($total_customers); ?></h3>
+                            <div class="stat-content">
+                                <div class="stat-label">Total Customers</div>
+                                <div class="stat-value"><?php echo number_format($total_customers); ?></div>
+                                <div class="stat-trend">
+                                    <span class="trend-up">
+                                        <i class="fas fa-arrow-up mr-1"></i> 12.5%
+                                    </span>
+                                    <span>from last month</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex items-center text-sm text-gray-600">
-                            <span class="flex items-center text-green-500 font-medium">
-                                <i class="fas fa-arrow-up mr-1 text-xs"></i> 12.5%
-                            </span>
-                            <span class="ml-2">from last month</span>
                         </div>
                     </div>
 
                     <!-- Active Employees -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all duration-200 hover:shadow-md">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 rounded-lg bg-green-50">
-                                <i class="fas fa-user-tie text-green-600 text-xl"></i>
+                    <div class="stat-card">
+                        <div class="flex items-center justify-between">
+                            <div class="stat-icon" style="background-color: var(--green-100); color: var(--green-600);">
+                                <i class="fas fa-user-tie"></i>
                             </div>
-                            <div class="text-right">
-                                <span class="text-xs font-medium text-gray-500">Active Employees</span>
-                                <h3 class="text-2xl font-bold text-gray-800"><?php
+                            <div class="stat-content">
+                                <div class="stat-label">Active Employees</div>
+                                <div class="stat-value"><?php
                                 $stmt = $db->query("SELECT COUNT(*) as total_employees FROM users WHERE role_id = 2");
                                 $total_employees = $stmt->fetch(PDO::FETCH_ASSOC)['total_employees'];
-                                echo $total_employees; ?></h3>
+                                echo $total_employees; ?></div>
+                                <div class="stat-trend">
+                                    <span class="trend-up">
+                                        <i class="fas fa-arrow-up mr-1"></i> 5.2%
+                                    </span>
+                                    <span>this year</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex items-center text-sm text-gray-600">
-                            <span class="flex items-center text-green-500 font-medium">
-                                <i class="fas fa-arrow-up mr-1 text-xs"></i> 5.2%
-                            </span>
-                            <span class="ml-2">this year</span>
                         </div>
                     </div>
 
                     <!-- Pending Tasks -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all duration-200 hover:shadow-md">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 rounded-lg bg-amber-50">
-                                <i class="fas fa-tasks text-amber-600 text-xl"></i>
+                    <div class="stat-card">
+                        <div class="flex items-center justify-between">
+                            <div class="stat-icon" style="background-color: var(--amber-100); color: var(--amber-600);">
+                                <i class="fas fa-tasks"></i>
                             </div>
-                            <div class="text-right">
-                                <span class="text-xs font-medium text-gray-500">Pending Tasks</span>
-                                <h3 class="text-2xl font-bold text-gray-800">18</h3>
+                            <div class="stat-content">
+                                <div class="stat-label">Pending Tasks</div>
+                                <div class="stat-value">18</div>
+                                <div class="stat-trend">
+                                    <span class="trend-down">
+                                        <i class="fas fa-arrow-down mr-1"></i> 3.1%
+                                    </span>
+                                    <span>from yesterday</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex items-center text-sm text-gray-600">
-                            <span class="flex items-center text-red-500 font-medium">
-                                <i class="fas fa-arrow-down mr-1 text-xs"></i> 3.1%
-                            </span>
-                            <span class="ml-2">from yesterday</span>
                         </div>
                     </div>
 
                     <!-- Monthly Revenue -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all duration-200 hover:shadow-md">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 rounded-lg bg-purple-50">
-                                <i class="fas fa-dollar-sign text-purple-600 text-xl"></i>
+                    <div class="stat-card">
+                        <div class="flex items-center justify-between">
+                            <div class="stat-icon" style="background-color: var(--purple-100); color: var(--purple-600);">
+                                <i class="fas fa-dollar-sign"></i>
                             </div>
-                            <div class="text-right">
-                                <span class="text-xs font-medium text-gray-500">Monthly Revenue</span>
-                                <h3 class="text-2xl font-bold text-gray-800">$24,580</h3>
+                            <div class="stat-content">
+                                <div class="stat-label">Monthly Revenue</div>
+                                <div class="stat-value">$24,580</div>
+                                <div class="stat-trend">
+                                    <span class="trend-up">
+                                        <i class="fas fa-arrow-up mr-1"></i> 18.7%
+                                    </span>
+                                    <span>vs last month</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex items-center text-sm text-gray-600">
-                            <span class="flex items-center text-green-500 font-medium">
-                                <i class="fas fa-arrow-up mr-1 text-xs"></i> 18.7%
-                            </span>
-                            <span class="ml-2">vs last month</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <?php if ($user_role === 'admin'): ?>
-                <div class="card">
-                    <div class="card-icon">👨‍💼</div>
-                    <div class="card-content">
-                        <h3>Employees</h3>
-                        <?php
-                        $stmt = $db->query("SELECT COUNT(*) as total_employees FROM users WHERE role_id = 2");
-                        $total_employees = $stmt->fetch(PDO::FETCH_ASSOC)['total_employees'];
-                        ?>
-                        <p class="card-number"><?php echo $total_employees; ?></p>
-                        <a href="employees.php" class="card-link">Manage</a>
-                    </div>
-                </div>
-                <?php endif; ?>
-
-                <div class="card">
-                    <div class="card-icon">📝</div>
-                    <div class="card-content">
-                        <h3>Quick Actions</h3>
-                        <div class="quick-actions">
-                            <a href="register_customer.php" class="btn btn-primary">Add New Customer</a>
                         </div>
                     </div>
                 </div>
 
                 <!-- Recent Customers -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <h2 class="text-lg font-semibold text-gray-800">Recent Customers</h2>
-                        <a href="add_customer.php" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
-                            <i class="fas fa-plus mr-2"></i> Add New
+                <div class="recent-customers">
+                    <div class="recent-header">
+                        <h2 class="recent-title">Recent Customers</h2>
+                        <a href="register_customer.php" class="btn-primary">
+                            <i class="fas fa-plus"></i> Add New
                         </a>
                     </div>
                     
                     <?php if (count($recent_customers) > 0): ?>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
+                        <div class="table-container">
+                            <table>
+                                <thead>
                                     <tr>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Added</th>
-                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <th>Customer</th>
+                                        <th>Email</th>
+                                        <th>Date Added</th>
+                                        <th class="text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
+                                <tbody>
                                     <?php foreach ($recent_customers as $customer): 
                                         $initials = strtoupper(substr($customer['first_name'], 0, 1) . substr($customer['last_name'], 0, 1));
                                         $colors = ['#4361ee', '#3f37c9', '#3a0ca3', '#4cc9f0', '#4895ef', '#f72585', '#7209b7'];
                                         $color = $colors[array_rand($colors)];
                                     ?>
-                                        <tr class="hover:bg-gray-50 transition-colors">
-                                            <td class="px-6 py-4 whitespace-nowrap">
+                                        <tr>
+                                            <td>
                                                 <div class="flex items-center">
-                                                    <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-medium text-sm" style="background-color: <?php echo $color; ?>">
+                                                    <div class="customer-avatar" style="background-color: <?php echo $color; ?>">
                                                         <?php echo $initials; ?>
                                                     </div>
-                                                    <div class="ml-4">
-                                                        <div class="text-sm font-medium text-gray-900">
+                                                    <div class="customer-info">
+                                                        <div class="customer-name">
                                                             <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
                                                         </div>
-                                                        <div class="text-sm text-gray-500">
+                                                        <div class="customer-phone">
                                                             <?php echo !empty($customer['phone']) ? htmlspecialchars($customer['phone']) : 'N/A'; ?>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td class="customer-email">
                                                 <?php echo htmlspecialchars($customer['email']); ?>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">
+                                            <td>
+                                                <div class="date-day">
                                                     <?php echo date('M j, Y', strtotime($customer['created_at'])); ?>
                                                 </div>
-                                                <div class="text-xs text-gray-500">
+                                                <div class="date-time">
                                                     <?php echo date('g:i A', strtotime($customer['created_at'])); ?>
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td class="text-right">
                                                 <div class="flex justify-end space-x-2">
-                                                    <a href="view_customer.php?id=<?php echo $customer['id']; ?>" class="text-gray-400 hover:text-primary-600 p-1 rounded-full hover:bg-primary-50 transition-colors" title="View">
+                                                    <a href="view_customer.php?id=<?php echo $customer['id']; ?>" class="action-btn" title="View">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <a href="edit_customer.php?id=<?php echo $customer['id']; ?>" class="text-gray-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 transition-colors" title="Edit">
+                                                    <a href="edit_customer.php?id=<?php echo $customer['id']; ?>" class="action-btn edit" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
-                                                    <a href="#" class="text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-colors btn-delete" title="Delete" data-id="<?php echo $customer['id']; ?>">
+                                                    <a href="#" class="action-btn delete" title="Delete" data-id="<?php echo $customer['id']; ?>">
                                                         <i class="fas fa-trash"></i>
                                                     </a>
                                                 </div>
@@ -1503,40 +941,38 @@ p {
                             </table>
                         </div>
                         
-                        <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-600">
+                        <div class="table-footer">
                             <div>
                                 Showing <span class="font-medium">1</span> to <span class="font-medium"><?php echo count($recent_customers); ?></span> of <span class="font-medium"><?php echo count($recent_customers); ?></span> results
                             </div>
-                            <div class="flex space-x-2">
-                                <button class="px-3 py-1 border rounded-md text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-50" disabled>
+                            <div class="pagination">
+                                <button class="page-btn" disabled>
                                     Previous
                                 </button>
-                                <button class="px-3 py-1 border rounded-md text-gray-600 bg-white hover:bg-gray-50">
+                                <button class="page-btn">
                                     Next
                                 </button>
                             </div>
                         </div>
                     <?php else: ?>
-                        <div class="text-center py-12 px-6">
-                            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gray-100 text-gray-400 mb-4">
-                                <i class="fas fa-users text-2xl"></i>
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <i class="fas fa-users"></i>
                             </div>
-                            <h3 class="text-lg font-medium text-gray-900 mb-1">No customers yet</h3>
-                            <p class="text-gray-500 mb-6">Get started by adding your first customer</p>
-                            <a href="add_customer.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                <i class="fas fa-plus mr-2"></i> Add Customer
+                            <h3 class="empty-title">No customers yet</h3>
+                            <p class="empty-description">Get started by adding your first customer</p>
+                            <a href="register_customer.php" class="btn-primary">
+                                <i class="fas fa-plus"></i> Add Customer
                             </a>
                         </div>
                     <?php endif; ?>
                 </div>
-            </div>
-        </main>
-        
-        <footer class="footer mt-auto py-3 bg-light">
-            <div class="container text-center">
-                <span class="text-muted">&copy; <?php echo date('Y'); ?> Customer Management System. All rights reserved.</span>
-            </div>
-        </footer>
+            </main>
+            
+            <footer class="footer">
+                <span>&copy; <?php echo date('Y'); ?> Customer Management System. All rights reserved.</span>
+            </footer>
+        </div>
     </div>
 
     <!-- Include Alpine.js for interactive components -->
@@ -1584,7 +1020,7 @@ p {
             window.addEventListener('resize', handleResize);
             
             // Handle delete confirmation
-            const deleteButtons = document.querySelectorAll('.btn-delete');
+            const deleteButtons = document.querySelectorAll('.action-btn.delete');
             deleteButtons.forEach(button => {
                 button.addEventListener('click', function(e) {
                     e.preventDefault();

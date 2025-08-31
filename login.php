@@ -9,19 +9,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($_POST['username']) || empty($_POST['password'])) {
         $error = "Please enter both username and password.";
     } else {
-        $database = new Database();
-        $db = $database->getConnection();
-        
-        $username = trim($_POST['username']);
-        $password = $_POST['password'];
-        
-        $query = "SELECT u.id, u.username, u.password_hash, u.first_name, u.last_name, u.role_id, u.is_active, 
-                  r.name as role_name 
-                  FROM users u 
-                  JOIN roles r ON u.role_id = r.id 
-                  WHERE u.username = :username AND u.is_active = 1 LIMIT 1";
-        
         try {
+            $database = new Database();
+            $db = $database->getConnection();
+            
+            $username = trim($_POST['username']);
+            $password = $_POST['password'];
+            
+            // Modified query to remove is_active check since column doesn't exist
+            $query = "SELECT u.id, u.username, u.password_hash, u.first_name, u.last_name, u.role_id, 
+                      r.name as role_name 
+                      FROM users u 
+                      JOIN roles r ON u.role_id = r.id 
+                      WHERE u.username = :username LIMIT 1";
+            
             $stmt = $db->prepare($query);
             $stmt->bindParam(':username', $username);
             $stmt->execute();
@@ -29,36 +30,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($stmt->rowCount() > 0) {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                // Debug output - remove this in production
-                error_log("Debug - Username from form: " . $username);
-                error_log("Debug - User data from DB: " . print_r($user, true));
-                
-                if (isset($user['password_hash']) && password_verify($password, $user['password_hash'])) {
+                // Verify password
+                if (password_verify($password, $user['password_hash'])) {
                     // Set session variables
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['role'] = $user['role_name'];
                     $_SESSION['full_name'] = ($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '');
                     
-                    // Update last login time
-                    $updateQuery = "UPDATE users SET last_login = NOW() WHERE id = :id";
-                    $updateStmt = $db->prepare($updateQuery);
-                    $updateStmt->execute([':id' => $user['id']]);
+                    // Remove last_login update since column doesn't exist
+                    // You can add this column later if needed
                     
                     header("Location: dashboard.php");
                     exit();
                 } else {
                     $error = "Invalid username or password.";
-                    error_log("Debug - Password verify failed for user: " . $username);
                 }
             } else {
                 $error = "Invalid username or password.";
-                error_log("Debug - No user found or user not active: " . $username);
             }
         } catch (PDOException $e) {
-            $error = "An error occurred. Please try again later.";
-            // Log the error for debugging
-            error_log("Login Error: " . $e->getMessage());
+            // More specific error handling
+            error_log("Database Error: " . $e->getMessage());
+            $error = "Database connection error. Please try again later.";
+        } catch (Exception $e) {
+            error_log("General Error: " . $e->getMessage());
+            $error = "An unexpected error occurred. Please try again later.";
         }
     }
 }
